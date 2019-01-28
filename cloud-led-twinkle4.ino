@@ -2,8 +2,8 @@
 
 #define PIN 1
 #define BUTTON_PIN 2
-#define NUM_LEDS 16
-#define COLOR_PRESET 0x11FF55AA    // whiteish
+#define NUM_LEDS 12
+#define COLOR_PRESET 0xFFFFFFFF    // whiteish
 //#define COLOR_PRESET 0xFF0000FF
 //                     N/A | R | G | B
 //                      If the starting values are uneven, that's why you'll see the color fade to a primary
@@ -29,11 +29,11 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, PIN, NEO_GRB + NEO_KHZ800)
 uint8_t rStates[NUM_LEDS];
 uint8_t bStates[NUM_LEDS];
 uint8_t gStates[NUM_LEDS];
-float fadeRate = 0.02;
+float fadeRate = 0.05;
 uint8_t igniteRate = 30;
-uint8_t  rPreset = ((COLOR_PRESET >> 16)&0xff);
-uint8_t  gPreset = ((COLOR_PRESET >>  8)&0xff);
-uint8_t  bPreset = ((COLOR_PRESET      )&0xff);
+uint8_t  rPreset = ((COLOR_PRESET >> 16) & 0xff);
+uint8_t  gPreset = ((COLOR_PRESET >>  8) & 0xff);
+uint8_t  bPreset = ((COLOR_PRESET      ) & 0xff);
 
 int ledMode = 0;
 unsigned long keyPrevMillis = 0;
@@ -46,94 +46,157 @@ byte prevKeyState = HIGH;         // button is active low
 void setup() {
   strip.begin();
   strip.show();
-  for(uint16_t i = 0; i < NUM_LEDS; i++) {
+  for (uint16_t i = 0; i < NUM_LEDS; i++) {
     rStates[i] = 0;
     gStates[i] = 0;
     bStates[i] = 0;
   }
+  strip.setBrightness(128);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 }
 
 void loop () {
-    byte currKeyState = digitalRead(BUTTON_PIN);
- 
-  if ((prevKeyState == LOW) && (currKeyState == HIGH)) {
-    shortKeyPress();
+  //Igniter
+  //Randomly choose to check if a given LED's state is off across all channels
+  if (random(igniteRate) == 1) {
+    //Select random LED
+    uint16_t i = random(NUM_LEDS);
+    //If selected LED number's color states are off across all channels, set the RGB channels to the preset color
+    if (rStates[i] < 1 && gStates[i] < 1 && bStates[i] < 1) {
+      //checkPalleteSwitch();
+      rStates[i] = rPreset;
+      gStates[i] = gPreset;
+      bStates[i] = bPreset;
+    }
   }
-  prevKeyState = currKeyState;
- 
-  static uint8_t startIndex = 0;
-  startIndex = startIndex + 1; /* motion speed */
- 
-  switch (ledMode) {
- 
-  case 0:
-    //currentPalette = HeatColors_p;    //Red & Yellow, Fire Colors
-    break;
-  case 1:
-    //currentPalette = ForestColors_p;    //Foresty greens and yellows
-    break;
-  case 2: 
-    //currentPalette = OceanColors_p;  //Oceans are pretty and filled with mermaids
-    break;
-  case 3: 
-    //currentPalette = PurpleColors_p;  //My custom palette from above
-    break;
-  case 4:
-    //currentPalette = RainbowColors_p;  //All the colors!
-    break;
-  case 5:
-    //currentPalette = RainbowStripeColors_p;   //Rainbow stripes
-    break;      
-  case 6:
-    //currentPalette = PartyColors_p; //All the colors except the greens, which make people look a bit washed out
-    break;
-  } 
-    
-    //Igniter
-    //Randomly choose to check if a given LED's state is off across all channels
-    if (random(igniteRate) == 1) {
-      //Select random LED
-      uint16_t i = random(NUM_LEDS);
-      //If selected LED number's color states are off across all channels, set the RGB channels to the preset color
-      if (rStates[i] < 1 && gStates[i] < 1 && bStates[i] < 1) {
-        rStates[i] = rPreset;
-        gStates[i] = gPreset;
-        bStates[i] = bPreset;
-      }
-    }
 
-    //Fader
-    //Loop through each LED
-    for(uint16_t i = 0; i < NUM_LEDS; i++) {
-      //Set the selected LED's (i) RGB channel values based on the previous iteration
-      strip.setPixelColor(i, rStates[i], gStates[i], bStates[i]);
-      //If any of the RGB channels are on, then begin fading routine
-      if ( rStates[i] >= 1 || gStates[i] >= 1 || bStates[i] >= 1 ){
-        if ( rStates[i] >= 1 ){
-          rStates[i] -= rStates[i]*fadeRate;
-        } else {
-          rStates[i] = 0;
-        }
-        if ( gStates[i] >= 1 ){
-          gStates[i] -= gStates[i]*fadeRate;
-        } else {
-          gStates[i] = 0;
-        }
-        if ( bStates[i] >= 1 ){
-          bStates[i] -= bStates[i]*fadeRate;
-        } else {
-          bStates[i] = 0;
-        }
+  //Fader
+  //Loop through each LED
+  for (uint16_t i = 0; i < NUM_LEDS; i++) {
+    checkPalleteSwitch();
+    //Set the selected LED's (i) RGB channel values based on the previous iteration
+    strip.setPixelColor(i, rStates[i], gStates[i], bStates[i]);
+    //If any of the RGB channels are on, then begin fading routine
+    if ( rStates[i] >= 1 || gStates[i] >= 1 || bStates[i] >= 1 ) {
+      if ( rStates[i] >= 1 ) {
+        rStates[i] -= rStates[i] * fadeRate;
+      } else {
+        rStates[i] = 0;
+      }
+      if ( gStates[i] >= 1 ) {
+        gStates[i] -= gStates[i] * fadeRate;
+      } else {
+        gStates[i] = 0;
+      }
+      if ( bStates[i] >= 1 ) {
+        bStates[i] -= bStates[i] * fadeRate;
+      } else {
+        bStates[i] = 0;
       }
     }
-    //Show current strip state
-    strip.show();
-    delay(50);
+  }
+  //Show current strip state
+  strip.show();
+  delay(50);
 }
 
 void shortKeyPress() {
   ledMode++;
-  if (ledMode > 6) {
-    ledMode=0; 
-  }  
+  if (ledMode > 7) {
+    ledMode = 0;
+  }
+}
+
+void readButtonState() {
+  byte currKeyState = digitalRead(BUTTON_PIN);
+
+  if ((prevKeyState == LOW) && (currKeyState == HIGH)) {
+    shortKeyPress();
+  }
+  prevKeyState = currKeyState;
+}
+
+void checkPalleteSwitch() {
+ readButtonState();
+
+  switch (ledMode) {
+    case 0: //White
+      //currentPalette = HeatColors_p;    //Red & Yellow, Fire Colors
+      rPreset = ((0xFFFFFFFF >> 16) & 0xff);
+      gPreset = ((0xFFFFFFFF >>  8) & 0xff);
+      bPreset = ((0xFFFFFFFF      ) & 0xff);
+      break;
+    case 1: //Red
+      rPreset = ((0xFFFF0000 >> 16) & 0xff);
+      gPreset = ((0xFFFF0000 >>  8) & 0xff);
+      bPreset = ((0xFFFF0000      ) & 0xff);
+      break;
+    case 2: //Orange
+      rPreset = ((0xF0F02000 >> 16) & 0xff);
+      gPreset = ((0xF0F02000 >>  8) & 0xff);
+      bPreset = ((0xF0F02000      ) & 0xff);
+      break;
+    case 3: //Green
+      rPreset = ((0x0000FF00 >> 16) & 0xff);
+      gPreset = ((0x0000FF00 >>  8) & 0xff);
+      bPreset = ((0x0000FF00      ) & 0xff);
+      break;
+    case 4:  //Blue
+      rPreset = ((0x000000FF >> 16) & 0xff);
+      gPreset = ((0x000000FF >>  8) & 0xff);
+      bPreset = ((0x000000FF      ) & 0xff);
+      break;
+    case 5: //Indigo
+      rPreset = ((0xF0F000FF >> 16) & 0xff);
+      gPreset = ((0xF0F000FF >>  8) & 0xff);
+      bPreset = ((0xF0F000FF      ) & 0xff);
+      break;
+    case 6: //Sparkle
+      Sparkle(0xff, 0xff, 0xff, 2);
+      break;
+    case 7: //Rainbow
+      //      strip.setBrightness(120);
+      rainbow(30);
+      delay(10);
+      break;
+
+  }
+}
+
+void Sparkle(byte red, byte green, byte blue, int SpeedDelay) {
+  int Pixel = random(NUM_LEDS);
+  strip.setPixelColor(Pixel, red, green, blue);
+  strip.show();
+  delay(SpeedDelay);
+  strip.setPixelColor(Pixel, 0, 0, 0);
+}
+
+void rainbow(uint8_t wait) {
+  uint16_t i, j;
+
+  for (j = 0; j < 256; j++) {
+    for (i = 0; i < strip.numPixels(); i++) {
+      strip.setPixelColor(i, Wheel((i * 1 + j) & 255));
+    }
+    strip.show();
+    delay(wait);
+    readButtonState();
+  }
+}
+
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+uint32_t Wheel(byte WheelPos) {
+  if (WheelPos < 85) {
+    return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+  }
+  else if (WheelPos < 170) {
+    WheelPos -= 85;
+    return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+  }
+  else {
+    WheelPos -= 170;
+    return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  }
 }
